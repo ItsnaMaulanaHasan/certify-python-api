@@ -14,7 +14,6 @@ cors = CORS(app, resources={
     r"/get_image/*": {"origins": "http://localhost:8083"}
     })
 
-
 def data2binary(data):
     if type(data) == str:
         p = ''.join([format(ord(i), '08b')for i in data])
@@ -22,11 +21,8 @@ def data2binary(data):
         p = [format(i, '08b')for i in data]
     return p
 
-
 @app.route('/encrypt', methods=['POST'])
 def encrypt():
-    assets_folder = "assets"
-    # Assuming the image file is sent as form-data
     image_file = request.files['image']
     no_field = request.form['no']
     name_field = request.form['name']
@@ -67,6 +63,8 @@ def encrypt():
 
     enc_data = image
 
+    assets_folder = "assets"
+
     if not os.path.exists(assets_folder):
         os.makedirs(assets_folder)
 
@@ -81,10 +79,8 @@ def encrypt():
 
     return jsonify({"message": "Image encrypted successfully!", "filename": filename})
 
-
 @app.route('/decrypt', methods=['POST'])
 def decrypt():
-    # Assuming the image file is sent as form-data
     image_file = request.files['image']
     stego_image = cv2.imdecode(np.frombuffer(
         image_file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
@@ -109,14 +105,12 @@ def decrypt():
 
     return jsonify(msg)
 
-
 @app.route('/get_image/<filename>')
 def get_image(filename):
     try:
         return send_from_directory('assets', filename)
     except FileNotFoundError:
         return jsonify({"error": "File not found"})
-
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -6,6 +6,7 @@ import numpy as np
 from PIL import Image
 import json
 from flask_cors import CORS
+import fitz
 
 app = Flask(__name__)
 cors = CORS(app, resources={
@@ -29,8 +30,14 @@ def encrypt():
     email_field = request.form['email']
     info_field = request.form['info']
 
-    image = cv2.imdecode(np.frombuffer(
-        image_file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
+    doc = fitz.open(image_file)
+    image_page = doc[0]
+    
+    img_data = image_page.getPixmap()
+    image = np.array(Image.frombytes("RGB", (img_data.width, img_data.height), img_data.samples))
+
+    # image = cv2.imdecode(np.frombuffer(
+    #     image_file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
 
     json_data = {
         "no": no_field,
@@ -48,7 +55,7 @@ def encrypt():
 
     for value in image:
         for px in value:
-            r, g, b, *other_values = data2binary(px)
+            r, g, b = data2binary(px)
             if d_index < len_data:
                 px[0] = int(r[:-1] + b_data[d_index])
                 d_index += 1
@@ -61,7 +68,14 @@ def encrypt():
             if d_index >= len_data:
                 break
 
-    enc_data = image
+    # enc_data = image
+    
+    output_doc = fitz.open()
+    output_page = output_doc.new_page(width=image.width, height=image.height)
+    output_page.insert_image([0, 0, img_data.width, img_data.height], image.tobytes())
+
+    # Save the modified PDF
+    
 
     assets_folder = "assets"
 
@@ -71,24 +85,36 @@ def encrypt():
     name = name_field.lower().replace(" ", "_")
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    filename = f"{name}_{current_time}.png"
+    filename = f"{name}_{current_time}.pdf"
 
     encrypted_image_path = os.path.join(assets_folder, filename)
 
-    cv2.imwrite(encrypted_image_path, enc_data)
+    output_doc.save(encrypted_image_path)
+
+    # cv2.imwrite(encrypted_image_path, enc_data)
+    output_doc.close()
 
     return jsonify({"message": "Image encrypted successfully!", "filename": filename})
 
 @app.route('/decrypt', methods=['POST'])
 def decrypt():
     image_file = request.files['image']
-    stego_image = cv2.imdecode(np.frombuffer(
-        image_file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
+    
+    doc = fitz.open(image_file)
+    image_page = doc[0]
+
+    # Extract image from PDF
+    image = image_page.get_pixmap()
+    stego_image = np.array(Image.frombytes("RGB", (image.width, image.height), image.samples))
+
+    
+    # stego_image = cv2.imdecode(np.frombuffer(
+    #     image_file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
 
     bin_data = ""
     for value in stego_image:
         for px in value:
-            r, g, b, *other_values = data2binary(px)
+            r, g, b = data2binary(px)
             bin_data += r[-1]
             bin_data += g[-1]
             bin_data += b[-1]
